@@ -1,0 +1,18 @@
+// after including GLTFLoader
+const loader = new THREE.GLTFLoader();
+const pitcherGroup = new THREE.Group();
+scene.add(pitcherGroup);
+
+loader.load(
+  'models/pitcher.glb',
+  (gltf) => {
+    const model = gltf.scene;
+    model.position.set(0, 0, 0);    // tweak as needed
+    model.scale.set(1, 1, 1);       // tweak as needed
+    pitcherGroup.add(model);
+  },
+  undefined,
+  (err) => {
+    console.error('Error loading GLB:', err);
+  }
+);
