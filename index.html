@@ -1,18 +1,26 @@
-// after including GLTFLoader
-const loader = new THREE.GLTFLoader();
-const pitcherGroup = new THREE.Group();
-scene.add(pitcherGroup);
+const clock = new THREE.Clock();
+let time = 0;
+function animate() {
+  requestAnimationFrame(animate);
+  const delta = clock.getDelta();
+  time += delta;
 
-loader.load(
-  'models/pitcher.glb',
-  (gltf) => {
-    const model = gltf.scene;
-    model.position.set(0, 0, 0);    // tweak as needed
-    model.scale.set(1, 1, 1);       // tweak as needed
-    pitcherGroup.add(model);
-  },
-  undefined,
-  (err) => {
-    console.error('Error loading GLB:', err);
-  }
-);
+  // Only pitcher rotates
+  pitcherGroup.rotation.y += delta * 0.4;
+
+  const glow = 0.8 + Math.sin(time * 2.0) * 0.3;
+  segmentMat.emissiveIntensity = glow;
+  jointMat.emissiveIntensity = glow * 1.1;
+
+  // Animate ball along arc inside fixed panel
+  pitchAnimT += delta * 0.6;
+  const loopT = pitchAnimT % 1.0;
+  const p = arcCurve.getPoint(loopT);
+  arcBall.position.copy(p);
+
+  updateScanPlane(time);
+  updateHudSweep(time);
+  renderCallouts();
+  renderer.render(scene, camera);
+}
+animate();
