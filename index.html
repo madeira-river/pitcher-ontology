@@ -1,26 +1,182 @@
-const clock = new THREE.Clock();
-let time = 0;
-function animate() {
-  requestAnimationFrame(animate);
-  const delta = clock.getDelta();
-  time += delta;
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Pitcher Ontology – Arc Panel Above Head</title>
+<style>
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    background: radial-gradient(circle at top, #050816 0%, #020308 40%, #000000 100%);
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    color: #e5e7eb; overflow: hidden;
+  }
+  #app {
+    display: grid;
+    grid-template-columns: 2fr 4fr 3fr;
+    grid-template-rows: auto 1fr auto;
+    grid-template-areas: "ont header header" "ont scene side" "ont timeline side";
+    height: 100vh; width: 100vw;
+  }
+  header {
+    grid-area: header; padding: 8px 16px; display: flex;
+    justify-content: space-between; align-items: center;
+    background: linear-gradient(90deg, #020617 0%, #020617 50%, #0f172a 100%);
+    border-bottom: 1px solid rgba(148,163,184,0.15);
+    box-shadow: 0 0 15px rgba(15,23,42,0.6);
+  }
+  header h1 { margin: 0; font-size: 16px; letter-spacing: 0.08em; text-transform: uppercase; color: #e5e7eb; }
+  header span { font-size: 11px; text-transform: uppercase; letter-spacing: 0.16em; color: #6b7280; }
+  #ontology-outline {
+    grid-area: ont;
+    border-right: 1px solid rgba(148,163,184,0.18);
+    background: radial-gradient(circle at top left, #020617 0%, #020617 40%, #000000 100%);
+    box-shadow: inset -8px 0 24px rgba(15,23,42,0.9);
+    display: flex; flex-direction: column; padding: 8px 10px;
+  }
+  #ontology-outline-title {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.2em; color: #9ca3af;
+    margin-bottom: 4px; border-bottom: 1px solid rgba(75,85,99,0.6); padding-bottom: 4px;
+  }
+  #ontology-outline-scroll { flex: 1; overflow-y: auto; padding-right: 4px; font-size: 10px; scrollbar-width: thin; }
+  .ont-node { position: relative; padding: 2px 4px 2px 12px; margin: 1px 0; cursor: default; color: #9ca3af; border-radius: 4px; }
+  .ont-node::before { content: ""; position: absolute; left: 4px; top: 50%; width: 6px; height: 1px; background: rgba(55,65,81,0.7); }
+  .ont-node-depth-0 { padding-left: 4px; } .ont-node-depth-0::before { display: none; }
+  .ont-node-depth-1 { padding-left: 12px; } .ont-node-depth-2 { padding-left: 20px; }
+  .ont-node-depth-3 { padding-left: 28px; } .ont-node-depth-4 { padding-left: 36px; }
+  .ont-path { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 10px; }
+  .ont-value { color: #6b7280; margin-left: 4px; }
+  .ont-node-highlight { background: radial-gradient(circle at left, rgba(37,99,235,0.35), transparent); color: #e5e7eb; box-shadow: 0 0 8px rgba(37,99,235,0.7); }
+  #scene {
+    grid-area: scene; position: relative; overflow: hidden;
+    background: radial-gradient(circle at top, #020617 0%, #020617 45%, #000000 100%);
+    border-right: 1px solid rgba(148,163,184,0.18);
+  }
+  canvas { width: 100%; height: 100%; display: block; }
+  #hud {
+    position: absolute; right: 18px; bottom: 18px; width: 120px; height: 120px;
+    border-radius: 50%; border: 1px solid rgba(59,130,246,0.6);
+    box-shadow: 0 0 12px rgba(37,99,235,0.7); display: flex; align-items: center;
+    justify-content: center; color: #e5e7eb; font-size: 10px; text-align: center;
+    background: radial-gradient(circle at top, rgba(15,23,42,0.95), rgba(15,23,42,0.8));
+    pointer-events: none;
+  }
+  #hud-inner {
+    width: 90px; height: 90px; border-radius: 50%;
+    border: 1px dashed rgba(148,163,184,0.6); display: flex;
+    align-items: center; justify-content: center; position: relative;
+  }
+  #hud-inner span { display: block; margin: 1px 0; }
+  #hud-inner .label { color: #9ca3af; letter-spacing: 0.14em; text-transform: uppercase; font-size: 8px; }
+  #hud-inner .value { font-size: 11px; color: #e5e7eb; }
+  #hud-sweep {
+    position: absolute; width: 100%; height: 100%; border-radius: 50%;
+    border: 1px solid rgba(56,189,248,0.5); box-sizing: border-box;
+    clip-path: polygon(50% 50%, 100% 0, 100% 100%); transform-origin: 50% 50%; opacity: 0.6;
+  }
+  #side-panel {
+    grid-area: side; border-left: 1px solid rgba(148,163,184,0.18);
+    background: linear-gradient(180deg, rgba(15,23,42,0.96), rgba(15,23,42,0.98));
+    display: flex; flex-direction: column; padding: 10px 12px; gap: 8px;
+    box-shadow: inset 0 0 24px rgba(15,23,42,0.9);
+  }
+  #profile-switcher { display: flex; gap: 4px; margin-bottom: 4px; }
+  .profile-btn {
+    flex: 1; padding: 6px 8px; font-size: 11px;
+    background: rgba(30,64,175,0.24); border: 1px solid rgba(59,130,246,0.4);
+    color: #c7d2fe; border-radius: 4px; cursor: pointer;
+    text-transform: uppercase; letter-spacing: 0.12em;
+  }
+  .profile-btn.active {
+    background: radial-gradient(circle at top, #2563eb, #1d4ed8);
+    border-color: #93c5fd; color: #e5e7eb; box-shadow: 0 0 10px rgba(59,130,246,0.7);
+  }
+  #profile-title { font-size: 13px; text-transform: uppercase; letter-spacing: 0.16em; color: #9ca3af; border-bottom: 1px solid rgba(148,163,184,0.2); padding-bottom: 4px; margin-bottom: 2px; }
+  #metric-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 6px; font-size: 11px; }
+  .metric-card {
+    border-radius: 6px; padding: 6px 7px;
+    background: radial-gradient(circle at top left, rgba(30,64,175,0.4), rgba(15,23,42,0.95));
+    border: 1px solid rgba(59,130,246,0.24); box-shadow: 0 0 10px rgba(15,23,42,0.9);
+  }
+  .metric-label { text-transform: uppercase; letter-spacing: 0.18em; font-size: 9px; color: #9ca3af; margin-bottom: 3px; }
+  .metric-value { font-size: 13px; color: #e5e7eb; transition: color 0.25s ease, transform 0.25s ease; }
+  .metric-value.bump { color: #bfdbfe; transform: scale(1.05); }
+  .metric-sub { font-size: 10px; color: #6b7280; }
+  #ontology-tabs { display: flex; gap: 4px; margin-top: 6px; margin-bottom: 4px; }
+  .tab-btn {
+    flex: 1; padding: 4px 6px; font-size: 10px; border-radius: 999px;
+    border: 1px solid rgba(148,163,184,0.4); background: rgba(15,23,42,0.9);
+    color: #9ca3af; cursor: pointer; text-transform: uppercase; letter-spacing: 0.12em;
+  }
+  .tab-btn.active { background: rgba(17,24,39,0.98); border-color: rgba(59,130,246,0.9); color: #dbeafe; box-shadow: 0 0 8px rgba(37,99,235,0.7); }
+  #ontology-list { flex: 1; overflow-y: auto; padding-right: 4px; font-size: 11px; }
+  .ont-item { margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px dashed rgba(55,65,81,0.7); cursor: pointer; }
+  .ont-label { text-transform: uppercase; letter-spacing: 0.16em; font-size: 9px; color: #9ca3af; }
+  .ont-name { font-size: 12px; color: #e5e7eb; }
+  .ont-desc { font-size: 10px; color: #6b7280; }
+  #timeline {
+    grid-area: timeline; border-top: 1px solid rgba(148,163,184,0.18);
+    background: radial-gradient(circle at bottom, #020617 0%, #000000 55%, #020617 100%);
+    display: flex; align-items: center; padding: 6px 12px; gap: 10px;
+    box-shadow: 0 -8px 20px rgba(15,23,42,0.9);
+  }
+  #timeline label { text-transform: uppercase; letter-spacing: 0.2em; font-size: 9px; color: #9ca3af; white-space: nowrap; }
+  #profile-range { flex: 1; }
+  input[type="range"] { width: 100%; accent-color: #3b82f6; }
+  #profile-meta { min-width: 160px; text-align: right; font-size: 10px; color: #9ca3af; }
+  .callout {
+    position: absolute; font-size: 10px; padding: 4px 6px; border-radius: 4px;
+    background: rgba(15,23,42,0.94); border: 1px solid rgba(59,130,246,0.9);
+    color: #e5e7eb; pointer-events: none; box-shadow: 0 0 10px rgba(15,23,42,0.9);
+    white-space: nowrap; transform-origin: center;
+    transition: transform 0.2s ease, opacity 0.2s ease;
+  }
+  @media (max-width: 900px) {
+    #app { grid-template-columns: 1fr; grid-template-rows: auto 2fr 1.8fr auto; grid-template-areas: "header" "scene" "side" "timeline"; }
+    #ontology-outline { display: none; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <aside id="ontology-outline">
+    <div id="ontology-outline-title">PITCHER DATA ONTOLOGY</div>
+    <div id="ontology-outline-scroll"></div>
+  </aside>
 
-  // Only pitcher rotates
-  pitcherGroup.rotation.y += delta * 0.4;
+  <header>
+    <div>
+      <h1>PITCHER ONTOLOGY INTERFACE</h1>
+      <span>3D GLB MODEL · DATA &amp; INTELLIGENCE LAYER</span>
+    </div>
+    <div style="font-size:10px;text-align:right;color:#6b7280;">
+      PROFILE VIEW: <span id="profile-view-label">Baseline Mechanics</span><br/>
+      MODE: Holographic Pitcher · Ontological Breakdown
+    </div>
+  </header>
 
-  const glow = 0.8 + Math.sin(time * 2.0) * 0.3;
-  segmentMat.emissiveIntensity = glow;
-  jointMat.emissiveIntensity = glow * 1.1;
+  <div id="scene">
+    anvas id="pitcherCanvas"></canvas>
+    <div id="hud">
+      <div id="hud-inner">
+        <div id="hud-sweep"></div>
+        <div>
+          <span class="label">Leverage</span>
+          <span class="value" id="hud-leverage">0.42</span>
+          <span class="label">Stress</span>
+          <span class="value" id="hud-stress">Moderate</span>
+          <span class="label">Command</span>
+          <span class="value" id="hud-command">0.74</span>
+        </div>
+      </div>
+    </div>
+  </div>
 
-  // Animate ball along arc inside fixed panel
-  pitchAnimT += delta * 0.6;
-  const loopT = pitchAnimT % 1.0;
-  const p = arcCurve.getPoint(loopT);
-  arcBall.position.copy(p);
-
-  updateScanPlane(time);
-  updateHudSweep(time);
-  renderCallouts();
-  renderer.render(scene, camera);
-}
-animate();
+  <aside id="side-panel">
+    <div id="profile-switcher">
+      <button class="profile-btn active" data-profile="0">Baseline</button>
+      <button class="profile-btn" data-profile="1">High Leverage</button>
+      <button class="profile-btn" data-profile="2">Fatigue</button>
+    </div>
+    <div id="profile-title">Pitcher Longitudinal Profiles</div>
+    <div id="metric-grid">
+      <div
